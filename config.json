@@ -1,0 +1,31 @@
+{
+  "default_origin": 2000,
+  "default_destination": 3002,
+  "default_model": "LSTM",
+  "available_models": [
+    "LSTM",
+    "GRU",
+    "Regression Tree"
+  ],
+  "default_algorithm": "A*",
+  "available_algorithms": [
+    "A*",
+    "Dijkstra",
+    "GBFS",
+    "BFS",
+    "DFS"
+  ],
+  "speed_limit_kmh": 60,
+  "intersection_delay_sec": 30,
+  "max_routes": 5,
+  "map_center": {
+    "lat": -37.8225,
+    "lon": 145.0600
+  },
+  "default_zoom": 13,
+  "lat_offset": 0.0,
+  "lon_offset": 0.0,
+  "scats_data_path": "data/Scats Data October 2006.xls",
+  "scats_sheet_name": "Data"
+}
+
