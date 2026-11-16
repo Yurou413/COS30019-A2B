@@ -19,6 +19,7 @@ import heapq
 import json
 import math
 from pathlib import Path
+import runpy
 from typing import Any
 
 import folium
@@ -116,14 +117,26 @@ def flow_to_speed_kmh(flow_veh_hr: float, speed_limit_kmh: float = 60.0) -> floa
 
 
 def train_selected_model(model_name: str) -> str:
-    """
-    Placeholder hook to trigger ML model training from the GUI.
-    Swap with Yurou (LSTM), Huiming (GRU), and Vivian (Regression Tree) training calls.
-    """
-    return (
-        f"Training hook triggered for **{model_name}**. "
-        "Connect `ML-models/` training functions here once team models are finalized."
+    """Prepare multi-site sequences and train the selected supported model."""
+    model_configs = {
+        "LSTM": ("lstm_model.py", "train_lstm"),
+        "GRU": ("gru_model.py", "train_gru"),
+    }
+    if model_name not in model_configs:
+        return f"{model_name} training is not implemented yet."
+
+    project_root = Path(__file__).parent
+    preprocessing = runpy.run_path(
+        str(project_root / "preprocessing" / "create_sequences.py")
     )
+    preprocessing["create_sequences"]()
+
+    model_file, train_function = model_configs[model_name]
+    model_module = runpy.run_path(
+        str(project_root / "ML-models" / model_file)
+    )
+    model_path = model_module[train_function]()
+    return f"{model_name} training completed. Model saved to `{model_path}`."
 
 
 def build_scats_graph(
