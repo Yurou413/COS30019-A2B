@@ -1,0 +1,21 @@
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# macOS
+.DS_Store
+
+# IDE / Editors
+.vscode/
+.idea/
+
+# Saved large model artifacts (optional - uncomment if needed)
+# models/*.keras
+# models/*.h5
+
