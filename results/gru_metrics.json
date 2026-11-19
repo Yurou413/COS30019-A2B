@@ -1,0 +1,39 @@
+{
+  "model": "GRU",
+  "dataset": "data\\traffic_sequences.npz",
+  "train_samples": 93692,
+  "test_samples": 22280,
+  "scats_sites": 40,
+  "sequence_length": 4,
+  "input_features": 41,
+  "selected_gru_units": 64,
+  "dropout": 0.2,
+  "batch_size": 32,
+  "validation_split": 0.2,
+  "tuning_candidates": [
+    {
+      "gru_units": 32,
+      "epochs_trained": 12,
+      "best_validation_mse": 0.004027639515697956
+    },
+    {
+      "gru_units": 64,
+      "epochs_trained": 11,
+      "best_validation_mse": 0.0036893340293318033
+    }
+  ],
+  "epochs_per_candidate_max": 30,
+  "training_seconds": 84.5750252000289,
+  "inference_seconds_total": 0.6724071999778971,
+  "inference_ms_per_sample": 0.030179856372437034,
+  "normalized_metrics": {
+    "mse": 0.003723421134054661,
+    "rmse": 0.06101984213397033,
+    "mae": 0.046922195702791214
+  },
+  "traffic_volume_metrics": {
+    "mse": 3221.9374349301456,
+    "rmse": 56.76211267148313,
+    "mae": 41.17520330585673
+  }
+}
