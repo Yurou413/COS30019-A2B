@@ -19,7 +19,6 @@ import heapq
 import json
 import math
 from pathlib import Path
-import runpy
 from typing import Any
 
 import folium
@@ -117,26 +116,14 @@ def flow_to_speed_kmh(flow_veh_hr: float, speed_limit_kmh: float = 60.0) -> floa
 
 
 def train_selected_model(model_name: str) -> str:
-    """Prepare multi-site sequences and train the selected supported model."""
-    model_configs = {
-        "LSTM": ("lstm_model.py", "train_lstm"),
-        "GRU": ("gru_model.py", "train_gru"),
-    }
-    if model_name not in model_configs:
-        return f"{model_name} training is not implemented yet."
-
-    project_root = Path(__file__).parent
-    preprocessing = runpy.run_path(
-        str(project_root / "preprocessing" / "create_sequences.py")
+    """
+    Placeholder hook to trigger ML model training from the GUI.
+    Swap with Yurou (LSTM), Huiming (GRU), and Vivian (Regression Tree) training calls.
+    """
+    return (
+        f"Training hook triggered for **{model_name}**. "
+        "Connect `ML-models/` training functions here once team models are finalized."
     )
-    preprocessing["create_sequences"]()
-
-    model_file, train_function = model_configs[model_name]
-    model_module = runpy.run_path(
-        str(project_root / "ML-models" / model_file)
-    )
-    model_path = model_module[train_function]()
-    return f"{model_name} training completed. Model saved to `{model_path}`."
 
 
 def build_scats_graph(
@@ -167,137 +154,166 @@ def build_scats_graph(
     return {node: list(nbrs.items()) for node, nbrs in graph.items()}
 
 
-def _run_search(
+def _edge_key(u: int, v: int) -> tuple[int, int]:
+    """Return canonical undirected edge key."""
+    return (min(u, v), max(u, v))
+
+
+def _run_search_algorithm(
+    algorithm_name: str,
     graph: dict[int, list[tuple[int, float]]],
-    site_lookup: dict[int, dict[str, Any]],
+    site_coords: dict[int, tuple[float, float]],
     origin: int,
     destination: int,
-    algorithm_name: str,
     penalties: dict[tuple[int, int], float],
+    blocked_edges: set[tuple[int, int]],
 ) -> tuple[list[int] | None, int]:
     """
-    Run a single pathfinding search from origin to destination using the
-    selected algorithm ('A*', 'Dijkstra', 'GBFS', 'BFS', or 'DFS').
+    Run the selected Assignment 2A search algorithm on the SCATS graph.
     Returns (path, nodes_created).
     """
-    dest_lat = site_lookup[destination]["lat"]
-    dest_lon = site_lookup[destination]["lon"]
+    dest_lat, dest_lon = site_coords[destination]
 
-    def heuristic_km(node_id: int) -> float:
-        return haversine_km(
-            site_lookup[node_id]["lat"],
-            site_lookup[node_id]["lon"],
-            dest_lat,
-            dest_lon,
-        )
+    def h_km(node: int) -> float:
+        lat, lon = site_coords[node]
+        return haversine_km(lat, lon, dest_lat, dest_lon)
 
-    if algorithm_name == "BFS":
-        queue = deque([(origin, [origin])])
-        visited = {origin}
+    if algorithm_name.startswith("BFS"):
+        queue: deque[tuple[int, list[int]]] = deque([(origin, [origin])])
         nodes_created = 1
         while queue:
-            node, path = queue.popleft()
-            if node == destination:
+            current, path = queue.popleft()
+            if current == destination:
                 return path, nodes_created
-            neighbors = sorted(
-                graph.get(node, []),
-                key=lambda e: (penalties.get((min(node, e[0]), max(node, e[0])), 1.0), e[0]),
-            )
-            for nbr, _ in neighbors:
-                if nbr not in visited:
-                    visited.add(nbr)
+            for nbr, _ in sorted(graph.get(current, []), key=lambda e: e[0]):
+                if nbr not in path and _edge_key(current, nbr) not in blocked_edges:
                     queue.append((nbr, path + [nbr]))
                     nodes_created += 1
         return None, nodes_created
 
-    if algorithm_name == "DFS":
+    if algorithm_name.startswith("DFS"):
         stack: list[tuple[int, list[int]]] = [(origin, [origin])]
         nodes_created = 1
         while stack:
-            node, path = stack.pop()
-            if node == destination:
+            current, path = stack.pop()
+            if current == destination:
                 return path, nodes_created
-            neighbors = sorted(
-                graph.get(node, []),
-                key=lambda e: (penalties.get((min(node, e[0]), max(node, e[0])), 1.0), e[0]),
-                reverse=True,
-            )
-            for nbr, _ in neighbors:
-                if nbr not in path:
+            for nbr, _ in reversed(sorted(graph.get(current, []), key=lambda e: e[0])):
+                if nbr not in path and _edge_key(current, nbr) not in blocked_edges:
                     stack.append((nbr, path + [nbr]))
                     nodes_created += 1
-                    if nodes_created > 5000:
-                        return None, nodes_created
         return None, nodes_created
 
-    # Priority-queue algorithms: A*, Dijkstra, GBFS
+    if algorithm_name.startswith("CUS2"):
+        # Min-hops A* (from Algorithms/cus2.py): g = hops, h = floor(dist / max_edge)
+        max_edge = max(
+            (dist_km for nbrs in graph.values() for _, dist_km in nbrs),
+            default=1.0,
+        )
+        seq = 0
+        pq: list[tuple[int, int, int, int, list[int]]] = [
+            (math.floor(h_km(origin) / max_edge), 0, seq, origin, [origin])
+        ]
+        best_moves: dict[int, int] = {origin: 0}
+        nodes_created = 1
+        while pq:
+            _, moves, _, current, path = heapq.heappop(pq)
+            if moves != best_moves.get(current):
+                continue
+            if current == destination:
+                return path, nodes_created
+            for nbr, _ in sorted(graph.get(current, []), key=lambda e: e[0]):
+                if nbr in path or _edge_key(current, nbr) in blocked_edges:
+                    continue
+                new_moves = moves + 1
+                if new_moves < best_moves.get(nbr, float("inf")):
+                    best_moves[nbr] = new_moves
+                    seq += 1
+                    f_val = new_moves + math.floor(h_km(nbr) / max_edge)
+                    heapq.heappush(pq, (f_val, new_moves, seq, nbr, path + [nbr]))
+                    nodes_created += 1
+        return None, nodes_created
+
+    if algorithm_name.startswith("GBFS"):
+        seq = 0
+        pq_gbfs: list[tuple[float, int, int, list[int]]] = [
+            (h_km(origin), seq, origin, [origin])
+        ]
+        nodes_created = 1
+        while pq_gbfs:
+            _, _, current, path = heapq.heappop(pq_gbfs)
+            if current == destination:
+                return path, nodes_created
+            for nbr, _ in sorted(graph.get(current, []), key=lambda e: e[0]):
+                if nbr in path or _edge_key(current, nbr) in blocked_edges:
+                    continue
+                edge = _edge_key(current, nbr)
+                seq += 1
+                heapq.heappush(
+                    pq_gbfs,
+                    (h_km(nbr) * penalties.get(edge, 1.0), seq, nbr, path + [nbr]),
+                )
+                nodes_created += 1
+        return None, nodes_created
+
+    # Weighted A* or UCS / Dijkstra
+    use_heuristic = algorithm_name.startswith("A*")
     seq = 0
-    start_h = heuristic_km(origin) if algorithm_name in ("A*", "GBFS") else 0.0
-    pq: list[tuple[float, int, float, int, list[int]]] = [(start_h, seq, 0.0, origin, [origin])]
-    best_g: dict[int, float] = {origin: 0.0}
-    visited_gbfs: set[int] = set()
+    start_f = h_km(origin) if use_heuristic else 0.0
+    pq_w: list[tuple[float, int, float, int, list[int]]] = [
+        (start_f, seq, 0.0, origin, [origin])
+    ]
+    best_cost: dict[int, float] = {origin: 0.0}
     nodes_created = 1
 
-    while pq:
-        _, _, g_cost, node, path = heapq.heappop(pq)
-        if node == destination:
-            return path, nodes_created
-
-        if algorithm_name == "GBFS":
-            if node in visited_gbfs:
-                continue
-            visited_gbfs.add(node)
-        elif g_cost > best_g.get(node, float("inf")):
+    while pq_w:
+        _, _, g, current, path = heapq.heappop(pq_w)
+        if g > best_cost.get(current, float("inf")):
             continue
-
-        for nbr, dist_km in sorted(graph.get(node, []), key=lambda e: e[0]):
-            if nbr in path:
+        if current == destination:
+            return path, nodes_created
+        for nbr, dist_km in sorted(graph.get(current, []), key=lambda e: e[0]):
+            if nbr in path or _edge_key(current, nbr) in blocked_edges:
                 continue
-            edge = (min(node, nbr), max(node, nbr))
-            penalty = penalties.get(edge, 1.0)
-            new_g = g_cost + dist_km * penalty
-
-            if algorithm_name == "GBFS":
-                if nbr in visited_gbfs:
-                    continue
-                priority = heuristic_km(nbr) * penalty
-            elif algorithm_name == "A*":
-                if new_g >= best_g.get(nbr, float("inf")):
-                    continue
-                best_g[nbr] = new_g
-                priority = new_g + heuristic_km(nbr)
-            else:  # Dijkstra
-                if new_g >= best_g.get(nbr, float("inf")):
-                    continue
-                best_g[nbr] = new_g
-                priority = new_g
-
-            seq += 1
-            heapq.heappush(pq, (priority, seq, new_g, nbr, path + [nbr]))
-            nodes_created += 1
+            edge = _edge_key(current, nbr)
+            new_g = g + dist_km * penalties.get(edge, 1.0)
+            if new_g < best_cost.get(nbr, float("inf")):
+                best_cost[nbr] = new_g
+                seq += 1
+                f_val = new_g + (h_km(nbr) if use_heuristic else 0.0)
+                heapq.heappush(pq_w, (f_val, seq, new_g, nbr, path + [nbr]))
+                nodes_created += 1
 
     return None, nodes_created
 
 
 def find_top_k_paths(
     graph: dict[int, list[tuple[int, float]]],
-    site_lookup: dict[int, dict[str, Any]],
+    site_coords: dict[int, tuple[float, float]],
     origin: int,
     destination: int,
     k: int,
-    algorithm_name: str = "A*",
+    algorithm_name: str,
 ) -> list[tuple[list[int], int]]:
     """
-    Find up to `k` distinct multi-hop SCATS paths using the chosen search
-    algorithm and iterative edge penalization. Returns list of (path, nodes_created).
+    Find up to `k` distinct multi-hop SCATS paths using the chosen search algorithm.
+    Returns a list of (path, nodes_created) tuples.
     """
     results: list[tuple[list[int], int]] = []
     seen: set[tuple[int, ...]] = set()
     penalties: dict[tuple[int, int], float] = {}
+    blocked_edges: set[tuple[int, int]] = set()
+    is_unweighted = algorithm_name.startswith(("BFS", "DFS", "CUS2"))
 
-    for _ in range(k * 5):
-        path, nodes_created = _run_search(
-            graph, site_lookup, origin, destination, algorithm_name, penalties
+    for attempt in range(k * 5):
+        path, nodes_created = _run_search_algorithm(
+            algorithm_name=algorithm_name,
+            graph=graph,
+            site_coords=site_coords,
+            origin=origin,
+            destination=destination,
+            penalties=penalties,
+            blocked_edges=blocked_edges,
         )
         if not path:
             break
@@ -307,9 +323,15 @@ def find_top_k_paths(
             results.append((path, nodes_created))
             if len(results) >= k:
                 break
-        for i in range(len(path) - 1):
-            edge = (min(path[i], path[i + 1]), max(path[i], path[i + 1]))
-            penalties[edge] = penalties.get(edge, 1.0) * 1.65
+
+        if is_unweighted and len(path) >= 2:
+            # Block an intermediate edge to force an alternative route
+            edge_idx = attempt % (len(path) - 1)
+            blocked_edges.add(_edge_key(path[edge_idx], path[edge_idx + 1]))
+        else:
+            for i in range(len(path) - 1):
+                edge = _edge_key(path[i], path[i + 1])
+                penalties[edge] = penalties.get(edge, 1.0) * 1.65
 
     return results
 
@@ -319,7 +341,7 @@ def get_routes(
     destination_id: int,
     travel_datetime: dt_mod.datetime,
     model_name: str,
-    algorithm_name: str,
+    search_algorithm: str,
     speed_limit_kmh: float,
     intersection_delay_sec: float,
     max_routes: int,
@@ -329,25 +351,22 @@ def get_routes(
     Modular route-finding & travel-time estimation interface.
 
     TODO (End-to-End Integration):
-        Replace this placeholder body with Vivian's ported Assignment 2A
-        k-shortest pathfinding + ML flow prediction backend.
-
-    Returns a list of up to `max_routes` dicts sorted by travel_time_sec:
-        {
-            "rank": int,
-            "path": list[int],
-            "distance_km": float,
-            "travel_time_sec": float,
-            "intersections": int,
-            "nodes_created": int,
-            "algorithm": str,
-            "model": str,
-        }
+        Swap the ML flow prediction (`base_flow`) with Vivian/Yurou/Huiming's
+        trained model predictions and graph edge weights once finalized.
     """
     site_lookup = sites_df.set_index("scats_id").to_dict(orient="index")
+    site_coords = {
+        int(sid): (float(info["lat"]), float(info["lon"]))
+        for sid, info in site_lookup.items()
+    }
     graph = build_scats_graph(sites_df, k_neighbors=4)
-    candidate_results = find_top_k_paths(
-        graph, site_lookup, origin_id, destination_id, max_routes, algorithm_name
+    candidate_paths = find_top_k_paths(
+        graph=graph,
+        site_coords=site_coords,
+        origin=origin_id,
+        destination=destination_id,
+        k=max_routes,
+        algorithm_name=search_algorithm,
     )
 
     # Slight deterministic flow variation by hour & model for realistic UI preview
@@ -356,7 +375,7 @@ def get_routes(
     base_flow = 320.0 * hour_factor * model_bias
 
     routes = []
-    for idx, (path, nodes_created) in enumerate(candidate_results):
+    for idx, (path, nodes_created) in enumerate(candidate_paths):
         total_dist_km = sum(
             haversine_km(
                 site_lookup[path[i]]["lat"],
@@ -383,8 +402,8 @@ def get_routes(
                 "travel_time_sec": round(travel_time_sec, 1),
                 "intersections": intersections,
                 "nodes_created": nodes_created,
-                "algorithm": algorithm_name,
                 "model": model_name,
+                "algorithm": search_algorithm,
             }
         )
 
@@ -568,14 +587,22 @@ def main() -> None:
             st.info(train_selected_model(model_name))
 
         st.subheader("Search Algorithm")
-        algorithms = config.get(
-            "available_algorithms", ["A*", "Dijkstra", "GBFS", "BFS", "DFS"]
+        search_algos = config.get(
+            "available_search_algorithms",
+            [
+                "A* (Cost + Heuristic)",
+                "UCS / Dijkstra (Lowest Cost)",
+                "GBFS (Greedy Best-First)",
+                "BFS (Fewest Intersections)",
+                "DFS (Depth-First)",
+                "CUS2 (Min-Hops Heuristic)",
+            ],
         )
-        default_algo = config.get("default_algorithm", algorithms[0])
-        algorithm_name = st.selectbox(
+        default_algo = config.get("default_search_algorithm", search_algos[0])
+        search_algorithm = st.selectbox(
             "Pathfinding Algorithm",
-            options=algorithms,
-            index=algorithms.index(default_algo) if default_algo in algorithms else 0,
+            options=search_algos,
+            index=search_algos.index(default_algo) if default_algo in search_algos else 0,
         )
 
         st.subheader("Traffic Parameters")
@@ -636,7 +663,7 @@ def main() -> None:
             destination_id=destination_id,
             travel_datetime=travel_dt,
             model_name=model_name,
-            algorithm_name=algorithm_name,
+            search_algorithm=search_algorithm,
             speed_limit_kmh=float(speed_limit_kmh),
             intersection_delay_sec=float(intersection_delay_sec),
             max_routes=int(max_routes),
@@ -646,7 +673,7 @@ def main() -> None:
     col_map, col_routes = st.columns([3, 2], gap="large")
 
     with col_routes:
-        st.subheader(f"Top {len(routes)} Fastest Routes ({algorithm_name} + {model_name})")
+        st.subheader(f"Top {len(routes)} Fastest Routes")
         if routes:
             selected_rank = st.radio(
                 "Highlight Route on Map",
@@ -665,9 +692,9 @@ def main() -> None:
                     "Distance (km)": r["distance_km"],
                     "Est. Time": format_duration(r["travel_time_sec"]),
                     "Intersections": r["intersections"],
-                    "Nodes": r["nodes_created"],
-                    "Algorithm": r["algorithm"],
+                    "Nodes Explored": r["nodes_created"],
                     "Model": r["model"],
+                    "Algorithm": r["algorithm"],
                 }
                 for r in routes
             ]
