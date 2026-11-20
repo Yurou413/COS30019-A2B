@@ -7,13 +7,14 @@
     "GRU",
     "Regression Tree"
   ],
-  "default_algorithm": "A*",
-  "available_algorithms": [
-    "A*",
-    "Dijkstra",
-    "GBFS",
-    "BFS",
-    "DFS"
+  "default_search_algorithm": "A* (Cost + Heuristic)",
+  "available_search_algorithms": [
+    "A* (Cost + Heuristic)",
+    "UCS / Dijkstra (Lowest Cost)",
+    "GBFS (Greedy Best-First)",
+    "BFS (Fewest Intersections)",
+    "DFS (Depth-First)",
+    "CUS2 (Min-Hops Heuristic)"
   ],
   "speed_limit_kmh": 60,
   "intersection_delay_sec": 30,
