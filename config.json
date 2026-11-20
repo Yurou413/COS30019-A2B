@@ -5,16 +5,16 @@
   "available_models": [
     "LSTM",
     "GRU",
-    "Regression Tree"
+    "CNN"
   ],
-  "default_search_algorithm": "A* (Cost + Heuristic)",
+  "default_search_algorithm": "astar",
   "available_search_algorithms": [
-    "A* (Cost + Heuristic)",
-    "UCS / Dijkstra (Lowest Cost)",
-    "GBFS (Greedy Best-First)",
-    "BFS (Fewest Intersections)",
-    "DFS (Depth-First)",
-    "CUS2 (Min-Hops Heuristic)"
+    "astar",
+    "bfs",
+    "cus1 (Uniform Cost Search)",
+    "cus2 (Min-Hops Heuristic)",
+    "dfs",
+    "gbfs"
   ],
   "speed_limit_kmh": 60,
   "intersection_delay_sec": 30,

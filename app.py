@@ -178,7 +178,7 @@ def _run_search_algorithm(
         lat, lon = site_coords[node]
         return haversine_km(lat, lon, dest_lat, dest_lon)
 
-    if algorithm_name.startswith("BFS"):
+    if algorithm_name == "bfs":
         queue: deque[tuple[int, list[int]]] = deque([(origin, [origin])])
         nodes_created = 1
         while queue:
@@ -191,7 +191,7 @@ def _run_search_algorithm(
                     nodes_created += 1
         return None, nodes_created
 
-    if algorithm_name.startswith("DFS"):
+    if algorithm_name == "dfs":
         stack: list[tuple[int, list[int]]] = [(origin, [origin])]
         nodes_created = 1
         while stack:
@@ -204,7 +204,7 @@ def _run_search_algorithm(
                     nodes_created += 1
         return None, nodes_created
 
-    if algorithm_name.startswith("CUS2"):
+    if algorithm_name.startswith("cus2"):
         # Min-hops A* (from Algorithms/cus2.py): g = hops, h = floor(dist / max_edge)
         max_edge = max(
             (dist_km for nbrs in graph.values() for _, dist_km in nbrs),
@@ -234,7 +234,7 @@ def _run_search_algorithm(
                     nodes_created += 1
         return None, nodes_created
 
-    if algorithm_name.startswith("GBFS"):
+    if algorithm_name == "gbfs":
         seq = 0
         pq_gbfs: list[tuple[float, int, int, list[int]]] = [
             (h_km(origin), seq, origin, [origin])
@@ -256,8 +256,8 @@ def _run_search_algorithm(
                 nodes_created += 1
         return None, nodes_created
 
-    # Weighted A* or UCS / Dijkstra
-    use_heuristic = algorithm_name.startswith("A*")
+    # Weighted A* (astar) or Uniform Cost Search (cus1)
+    use_heuristic = algorithm_name == "astar"
     seq = 0
     start_f = h_km(origin) if use_heuristic else 0.0
     pq_w: list[tuple[float, int, float, int, list[int]]] = [
@@ -303,7 +303,7 @@ def find_top_k_paths(
     seen: set[tuple[int, ...]] = set()
     penalties: dict[tuple[int, int], float] = {}
     blocked_edges: set[tuple[int, int]] = set()
-    is_unweighted = algorithm_name.startswith(("BFS", "DFS", "CUS2"))
+    is_unweighted = algorithm_name in ("bfs", "dfs") or algorithm_name.startswith("cus2")
 
     for attempt in range(k * 5):
         path, nodes_created = _run_search_algorithm(
@@ -371,7 +371,7 @@ def get_routes(
 
     # Slight deterministic flow variation by hour & model for realistic UI preview
     hour_factor = 1.0 + 0.35 * math.sin((travel_datetime.hour - 6) / 24.0 * 2 * math.pi)
-    model_bias = {"LSTM": 1.0, "GRU": 1.03, "Regression Tree": 0.97}.get(model_name, 1.0)
+    model_bias = {"LSTM": 1.0, "GRU": 1.03, "CNN": 0.97}.get(model_name, 1.0)
     base_flow = 320.0 * hour_factor * model_bias
 
     routes = []
@@ -576,7 +576,7 @@ def main() -> None:
         travel_dt = dt_mod.datetime.combine(travel_date, travel_time)
 
         st.subheader("ML Prediction Model")
-        models = config.get("available_models", ["LSTM", "GRU", "Regression Tree"])
+        models = config.get("available_models", ["LSTM", "GRU", "CNN"])
         default_model = config.get("default_model", models[0])
         model_name = st.selectbox(
             "Model",
@@ -590,12 +590,12 @@ def main() -> None:
         search_algos = config.get(
             "available_search_algorithms",
             [
-                "A* (Cost + Heuristic)",
-                "UCS / Dijkstra (Lowest Cost)",
-                "GBFS (Greedy Best-First)",
-                "BFS (Fewest Intersections)",
-                "DFS (Depth-First)",
-                "CUS2 (Min-Hops Heuristic)",
+                "astar",
+                "bfs",
+                "cus1 (Uniform Cost Search)",
+                "cus2 (Min-Hops Heuristic)",
+                "dfs",
+                "gbfs",
             ],
         )
         default_algo = config.get("default_search_algorithm", search_algos[0])
