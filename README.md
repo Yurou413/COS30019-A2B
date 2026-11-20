@@ -37,3 +37,24 @@ SCATS site set or preprocessing features change.
 The Regression Tree training option is not implemented. Route travel-time
 estimates in `get_routes()` are still placeholder calculations; they do not
 yet use LSTM/GRU predictions.
+
+## Traffic model tests
+
+Run the trained-model evaluation tests with:
+
+```powershell
+py -m pytest tests -q
+```
+
+The tests load the saved GRU and LSTM checkpoints and evaluate them on the
+shared chronological held-out set in `data/traffic_sequences.npz`. They
+calculate MAE, MSE, and RMSE from predictions and ground truth in traffic-volume
+units, compare against a last-observation persistence baseline, validate
+prediction outputs, and report peak/off-peak metrics. Peak hours are identified
+from training-period data only. Install the project requirements and `pytest`
+before running the suite.
+
+There are no saved CNN or RNN checkpoints in `models/`, so the current suite
+cannot evaluate or fairly compare those architectures. `ML-models/rnn_model.py`
+defines a CNN rather than an RNN and points to a CNN checkpoint that is not
+present; no CNN/RNN performance is inferred from that source file.
