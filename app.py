@@ -699,11 +699,6 @@ def main() -> None:
                 for r in routes
             ]
             st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
-
-            st.caption(
-                "⚠️ Currently using placeholder `get_routes()` math. "
-                "Ready to swap in Vivian's A2A pathfinding + ML predictions."
-            )
         else:
             selected_route = None
             st.info("Select distinct Origin and Destination sites to view routes.")
