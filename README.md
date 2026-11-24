@@ -54,7 +54,8 @@ prediction outputs, and report peak/off-peak metrics. Peak hours are identified
 from training-period data only. Install the project requirements and `pytest`
 before running the suite.
 
-There are no saved CNN or RNN checkpoints in `models/`, so the current suite
-cannot evaluate or fairly compare those architectures. `ML-models/rnn_model.py`
-defines a CNN rather than an RNN and points to a CNN checkpoint that is not
-present; no CNN/RNN performance is inferred from that source file.
+There are no saved CNN or SimpleRNN checkpoints in `models/`, so the current
+suite cannot evaluate or fairly compare those architectures. `ML-models/rnn_model.py`
+implements stacked SimpleRNN layers but loads the legacy single-site
+`data/site2000_sequences.npz`; it is not part of the shared multi-site
+evaluation. No CNN or SimpleRNN performance is inferred from that source file.
