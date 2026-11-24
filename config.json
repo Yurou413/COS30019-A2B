@@ -5,7 +5,7 @@
   "available_models": [
     "LSTM",
     "GRU",
-    "CNN"
+    "RNN"
   ],
   "default_search_algorithm": "astar",
   "available_search_algorithms": [
