@@ -371,7 +371,7 @@ def get_routes(
 
     # Slight deterministic flow variation by hour & model for realistic UI preview
     hour_factor = 1.0 + 0.35 * math.sin((travel_datetime.hour - 6) / 24.0 * 2 * math.pi)
-    model_bias = {"LSTM": 1.0, "GRU": 1.03, "CNN": 0.97}.get(model_name, 1.0)
+    model_bias = {"LSTM": 1.0, "GRU": 1.03, "RNN": 0.97}.get(model_name, 1.0)
     base_flow = 320.0 * hour_factor * model_bias
 
     routes = []
@@ -576,7 +576,7 @@ def main() -> None:
         travel_dt = dt_mod.datetime.combine(travel_date, travel_time)
 
         st.subheader("ML Prediction Model")
-        models = config.get("available_models", ["LSTM", "GRU", "CNN"])
+        models = config.get("available_models", ["LSTM", "GRU", "RNN"])
         default_model = config.get("default_model", models[0])
         model_name = st.selectbox(
             "Model",
